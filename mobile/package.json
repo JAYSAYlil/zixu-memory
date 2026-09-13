@@ -1,0 +1,45 @@
+{
+  "name": "zixu-mobile",
+  "version": "0.5.0",
+  "main": "index.ts",
+  "dependencies": {
+    "expo": "~57.0.22",
+    "expo-audio": "~57.0.5",
+    "expo-blur": "~57.0.3",
+    "expo-crypto": "~57.0.3",
+    "expo-document-picker": "~57.0.2",
+    "expo-file-system": "~57.0.7",
+    "expo-haptics": "~57.0.3",
+    "expo-image-picker": "~57.0.17",
+    "expo-secure-store": "~57.0.4",
+    "expo-sharing": "~57.0.19",
+    "expo-sqlite": "~57.0.3",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-svg": "15.15.4",
+    "react-native-web": "^0.21.2"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/react": "~19.2.2",
+    "prettier": "^3.9.6",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/core.test.ts",
+    "preview": "node scripts/serve.cjs",
+    "test:ui": "node scripts/smoke.cjs",
+    "test:ai": "node scripts/ai-smoke.cjs",
+    "prepare:native": "node scripts/prepare-native.cjs"
+  },
+  "private": true
+}

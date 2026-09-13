@@ -1,0 +1,46 @@
+{
+  "expo": {
+    "name": "自叙",
+    "slug": "zixu-memory",
+    "version": "0.5.0",
+    "icon": "./assets/say2.png",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "scheme": "zixu",
+    "android": {
+      "package": "app.zixu.memory",
+      "versionCode": 15,
+      "allowBackup": false,
+      "permissions": ["RECORD_AUDIO"],
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_AUDIO",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_IMAGES"
+      ],
+      "predictiveBackGestureEnabled": true
+    },
+    "plugins": [
+      "expo-sqlite",
+      "expo-secure-store",
+      "expo-sharing",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "允许自叙录下你主动开始的语音记录。",
+          "enableBackgroundRecording": false
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "选择要放进记录的照片。",
+          "cameraPermission": "允许自叙拍摄要加入记忆的照片。"
+        }
+      ],
+      "./plugins/with-brand.cjs"
+    ],
+    "web": {
+      "name": "自叙 · 手机界面预览"
+    }
+  }
+}
