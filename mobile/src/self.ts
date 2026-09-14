@@ -10,9 +10,9 @@ export function confirmedSelf(insights: Insight[]) {
   }));
 }
 
-export function selfSkill(insights: Insight[]): string {
-  const profile = confirmedSelf(insights);
-  if (!profile.length) throw new Error('先在“认识我”中写下或确认一条自我认识。');
+export function selfSkill(insights: Insight[], onlyIds?: string[]): string {
+  const profile = confirmedSelf(insights).filter(i => !onlyIds || onlyIds.includes(i.id));
+  if (!profile.length) throw new Error('先选择至少一条要导出的认识。');
   return ['---', 'name: my-values', 'description: 根据我确认的价值观、性格与偏好，帮助我思考和选择。', '---', '',
     '# 询问自己', '', selfPolicy, '',
     '使用方式：将本文件上传到其他 AI 的对话或项目资料中，并请它依据本文件回答你的问题；支持技能文件的软件可保存为 SKILL.md。', '',

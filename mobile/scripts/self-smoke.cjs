@@ -24,6 +24,8 @@ const { chromium, expect } = require('@playwright/test');
     await page.getByLabel('自我认识', { exact: true }).fill('我重视自主，也愿意听取具体的建议。');
     await page.getByRole('button', { name: '保存并确认' }).click();
     await page.getByRole('button', { name: '导出我的价值观', exact: true }).click();
+    // 选择导出的认识：默认全选，直接预览并导出。
+    await page.getByRole('button', { name: /预览并导出/ }).click();
     const download = page.waitForEvent('download');
     await page.getByRole('button', { name: '保存或分享 SKILL.md' }).click();
     if ((await download).suggestedFilename() !== 'SKILL.md') throw Error('export failed');

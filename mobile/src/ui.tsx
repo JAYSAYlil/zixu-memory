@@ -22,6 +22,7 @@ export type IconName =
   | 'arrow'
   | 'back'
   | 'close'
+  | 'chevron'
   | 'mic'
   | 'photo'
   | 'camera'
@@ -51,6 +52,7 @@ export function Icon({
     arrow: 'M4 12h15M14 6l6 6-6 6',
     back: 'M20 12H5M10 6l-6 6 6 6',
     close: 'M6 6l12 12M18 6L6 18',
+    chevron: 'M6 9l6 6 6-6',
     mic: 'M5 10v2a7 7 0 0 0 14 0v-2M12 19v3M9 22h6',
     photo: 'M3 17l5-5 4 4 3-3 6 5',
     camera: 'M3 6h4l2-3h6l2 3h4v15H3z',

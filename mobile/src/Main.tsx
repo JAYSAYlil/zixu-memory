@@ -80,6 +80,9 @@ export default function Main() {
   const sessionFiles = useRef<Attachment[]>([]);
   const [showSelfBasis, setShowSelfBasis] = useState(false);
   const [showRejected, setShowRejected] = useState(false);
+  const [showConfirmed, setShowConfirmed] = useState(true);
+  const [exportPicker, setExportPicker] = useState(false);
+  const [exportSel, setExportSel] = useState<string[]>([]);
   const [showSources, setShowSources] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -864,11 +867,31 @@ export default function Main() {
                     有足够的经历后，可以试着找找其中的关联。每条观察都需要你的确认。
                   </Text>
                 )}
-                <View style={[s.sectionHead, { marginTop: 20 }]}>
+                <ScalePressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: showConfirmed }}
+                  onPress={() => setShowConfirmed(v => !v)}
+                  style={[s.sectionHead, { marginTop: 20 }]}
+                >
                   <Text style={s.sectionTitle}>已确认</Text>
-                  <Text style={s.meta}>{confirmed.length} 条</Text>
-                </View>
-                {confirmed.length ? (
+                  <View style={s.inline}>
+                    <Text style={s.meta}>{confirmed.length} 条</Text>
+                    <View style={{ transform: [{ rotate: showConfirmed ? '0deg' : '-90deg' }] }}>
+                      <Icon name="chevron" size={16} color={C.muted} />
+                    </View>
+                  </View>
+                </ScalePressable>
+                {!showConfirmed && !!confirmed.length && (
+                  <Text numberOfLines={1} style={s.description}>
+                    {confirmed[0].text}
+                  </Text>
+                )}
+                {!confirmed.length ? (
+                  <Empty
+                    title="先由你来介绍自己。"
+                    body="在意的事、喜欢的生活、做事的习惯，都可以写。"
+                  />
+                ) : showConfirmed ? (
                   confirmed.map((i, n) => (
                     <View key={i.id} style={[s.insight, n < confirmed.length - 1 && s.insightLine]}>
                       <View style={s.inline}>
@@ -922,12 +945,7 @@ export default function Main() {
                       </View>
                     </View>
                   ))
-                ) : (
-                  <Empty
-                    title="先由你来介绍自己。"
-                    body="在意的事、喜欢的生活、做事的习惯，都可以写。"
-                  />
-                )}
+                ) : null}
                 {!!shelved.length && (
                   <View style={{ marginTop: 8 }}>
                     <Button label={showRejected ? '收起已搁置认识' : `已搁置的认识（${shelved.length}）`} onPress={() => setShowRejected(v => !v)} />
@@ -951,9 +969,12 @@ export default function Main() {
                 {!!shelved.length && <View style={s.rule} />}
                 <View>
                   <Button label="导出我的价值观" icon="download" disabled={!!busy || !confirmed.length || !!demo}
-                    onPress={() => setExportPreview(selfSkill(data.insights))} />
+                    onPress={() => {
+                      setExportSel(confirmed.map(i => i.id));
+                      setExportPicker(true);
+                    }} />
                 </View>
-                <Text style={s.footnote}>把已确认的认识带到其他 AI，导出前可预览。</Text>
+                <Text style={s.footnote}>把已确认的认识带到其他 AI，可勾选要带走的条目，导出前可预览。</Text>
               </>
             )}
               </ScrollView>
@@ -1183,6 +1204,43 @@ export default function Main() {
             </View>
           </>
         )}
+      </Sheet>
+      <Sheet feedback={toast} visible={exportPicker} title="选择导出的认识" onClose={() => setExportPicker(false)}>
+        <Text style={s.description}>勾选要带走的认识，未勾选的不会出现在导出文件里。</Text>
+        <Button compact style={s.pickAll}
+          label={exportSel.length === confirmed.length ? '全不选' : '全选'}
+          disabled={!confirmed.length}
+          onPress={() => setExportSel(exportSel.length === confirmed.length ? [] : confirmed.map(i => i.id))} />
+        {confirmed.map((i, n) => {
+          const checked = exportSel.includes(i.id);
+          return (
+            <ScalePressable
+              key={i.id}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked }}
+              onPress={() => setExportSel(prev => checked ? prev.filter(id => id !== i.id) : [...prev, i.id])}
+              style={[s.pickRow, n < confirmed.length - 1 && s.insightLine]}
+            >
+              <View style={[s.pickBox, checked && { backgroundColor: C.accent, borderColor: C.accent }]}>
+                {checked && <Icon name="check" size={14} color={C.onAccent} />}
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={s.eyebrow}>{i.category}</Text>
+                <Text numberOfLines={2} style={s.small}>{i.text}</Text>
+              </View>
+            </ScalePressable>
+          );
+        })}
+        <Button
+          primary
+          label={`预览并导出（${exportSel.length}）`}
+          disabled={!exportSel.length || !!busy}
+          onPress={() => void run('导出价值观', async () => {
+            setExportPreview(selfSkill(data.insights, exportSel));
+            setExportPicker(false);
+          })}
+        />
+        <Text style={s.footnote}>导出的文件只包含勾选的认识，不包含原始记忆、照片、录音和 Key。</Text>
       </Sheet>
       <Sheet feedback={toast} visible={!!exportPreview} title="导出我的价值观" onClose={() => setExportPreview('')}>
         <Text style={s.description}>将文件上传到其他 AI 的对话或项目资料中，请它依据这份认识回答。修改档案后，可重新导出最新版本。</Text>
