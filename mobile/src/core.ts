@@ -1,10 +1,11 @@
 export type Attachment = {
   id: string;
-  kind: 'photo' | 'audio';
+  kind: 'photo' | 'audio' | 'file';
   uri: string;
   name: string;
   mime: string;
   duration?: number;
+  transcript?: { text: string; segments: { start: number; end: number; text: string }[] };
 };
 export type Memory = {
   id: string;
@@ -26,51 +27,237 @@ export type Insight = {
   createdAt: string;
   model?: string;
   sourceChanged?: boolean;
+  counterSourceIds?: string[];
+  changeNote?: string;
   history: { text: string; at: string }[];
 };
-export type Library = { version: 1; memories: Memory[]; insights: Insight[]; draft: string };
+export type Draft = {
+  text: string;
+  category: string;
+  attachments: Attachment[];
+  editingId?: string;
+  updatedAt: string;
+};
+export type Library = {
+  version: 1;
+  memories: Memory[];
+  insights: Insight[];
+  draft: string;
+  composerDraft?: Draft;
+};
 export type ModelConfig = { baseUrl: string; model: string; key: string };
 export const emptyLibrary = (): Library => ({ version: 1, memories: [], insights: [], draft: '' });
 export const categories = ['日常', '学习', '工作', '关系', '想法', '选择'] as const;
 export const uid = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+export function memoryText(m: Memory): string {
+  return [
+    m.text,
+    ...m.attachments
+      .filter((a) => a.transcript)
+      .map(
+        (a) =>
+          `录音 ${a.id}：\n` +
+          (a.transcript!.segments.length
+            ? a
+                .transcript!.segments.map(
+                  (s) =>
+                    `[${Math.floor(s.start / 60)}:${String(Math.floor(s.start % 60)).padStart(2, '0')}] ${s.text}`,
+                )
+                .join('\n')
+            : a.transcript!.text),
+      ),
+    ...m.attachments.filter((a) => a.kind === 'file').map((a) => `文件：${a.name}`),
+  ]
+    .filter(Boolean)
+    .join('\n\n');
+}
 export function removeMemory(state: Library, id: string): Library {
   return {
     ...state,
     memories: state.memories.filter((m) => m.id !== id),
-    insights: state.insights.map(i => i.sourceIds.includes(id)
-      ? { ...i, sourceIds: i.sourceIds.filter(source => source !== id), sourceChanged: true }
-      : i),
+    composerDraft: state.composerDraft?.editingId === id ? undefined : state.composerDraft,
+    insights: state.insights.map((i) =>
+      i.sourceIds.includes(id) || i.counterSourceIds?.includes(id)
+        ? {
+            ...i,
+            sourceIds: i.sourceIds.filter((source) => source !== id),
+            counterSourceIds: i.counterSourceIds?.filter((source) => source !== id),
+            sourceChanged: true,
+          }
+        : i,
+    ),
   };
 }
-export function reviseMemory(state: Library, id: string, text: string, category?: string, attachments?: Attachment[]): Library {
+export function reviseMemory(
+  state: Library,
+  id: string,
+  text: string,
+  category?: string,
+  attachments?: Attachment[],
+): Library {
   const at = new Date().toISOString();
   return {
     ...state,
     memories: state.memories.map((m) =>
       m.id === id
-        ? { ...m, text, category: category ?? m.category, attachments: attachments ?? m.attachments, updatedAt: at, history: text === m.text ? m.history : [...m.history, { text: m.text, at }] }
+        ? {
+            ...m,
+            text,
+            category: category ?? m.category,
+            attachments: attachments ?? m.attachments,
+            updatedAt: at,
+            history:
+              memoryText({ ...m, text, attachments: attachments ?? m.attachments }) ===
+              memoryText(m)
+                ? m.history
+                : [...m.history, { text: memoryText(m), at }],
+          }
         : m,
     ),
-    insights: state.insights.map(i => i.sourceIds.includes(id) && state.memories.some(m => m.id === id && m.text !== text)
-      ? { ...i, sourceChanged: true }
-      : i),
+    insights: state.insights.map((i) =>
+      (i.sourceIds.includes(id) || i.counterSourceIds?.includes(id)) &&
+      state.memories.some(
+        (m) =>
+          m.id === id &&
+          memoryText(m) !== memoryText({ ...m, text, attachments: attachments ?? m.attachments }),
+      )
+        ? { ...i, sourceChanged: true }
+        : i,
+    ),
   };
 }
 export function searchMemories(memories: Memory[], query: string): Memory[] {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return memories.filter((m) =>
-    terms.every((t) => `${m.text} ${m.category}`.toLocaleLowerCase().includes(t)),
+    terms.every((t) => `${memoryText(m)} ${m.category}`.toLocaleLowerCase().includes(t)),
   );
 }
 export function recallCandidates(memories: Memory[], query: string): Memory[] {
-  const grams = [...new Set(query.toLowerCase().match(/[a-z0-9]+|[\u4e00-\u9fff]{2}/g) || [])];
-  return [...memories]
-    .sort((a, b) => {
-      const score = (m: Memory) =>
-        grams.reduce((n, g) => n + (m.text.toLowerCase().includes(g) ? 1 : 0), 0);
-      return score(b) - score(a) || b.createdAt.localeCompare(a.createdAt);
+  const grams = retrievalTerms(query);
+  return memories
+    .map((m) => {
+      const text = memoryText(m).toLowerCase();
+      return { m, score: grams.reduce((n, g) => n + (text.includes(g) ? g.length : 0), 0) };
     })
-    .slice(0, 20);
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score || b.m.createdAt.localeCompare(a.m.createdAt))
+    .slice(0, 20)
+    .map((x) => x.m);
+}
+const stopTerms = new Set([
+  '为什么',
+  '什么',
+  '怎么',
+  '怎样',
+  '我为',
+  '为何',
+  '以前',
+  '过去',
+  '自己',
+  '时候',
+  '哪些',
+  '是否',
+  '可以',
+  '一个',
+  '今天',
+  '最近',
+  '如何',
+  '喜欢',
+  '不喜',
+  '觉得',
+  '感觉',
+  '让我',
+  '我想',
+]);
+export function retrievalTerms(query: string): string[] {
+  const chunks = query.toLowerCase().match(/[a-z0-9]+|[\u4e00-\u9fff]+/g) || [];
+  return [
+    ...new Set(
+      chunks.flatMap((chunk) =>
+        /^[a-z0-9]+$/.test(chunk) || chunk.length === 1
+          ? [chunk]
+          : Array.from({ length: chunk.length - 1 }, (_, i) => chunk.slice(i, i + 2)),
+      ),
+    ),
+  ].filter((t) => !stopTerms.has(t));
+}
+export type Scope = { from?: string; to?: string; category?: string; ids?: string[] };
+export function scopedMemories(memories: Memory[], scope: Scope): Memory[] {
+  for (const value of [scope.from, scope.to])
+    if (
+      value &&
+      (!/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+        !Number.isFinite(Date.parse(value)) ||
+        new Date(value).toISOString().slice(0, 10) !== value)
+    )
+      throw new Error('日期请使用有效的 YYYY-MM-DD 格式。');
+  if (scope.from && scope.to && scope.from > scope.to)
+    throw new Error('开始日期不能晚于结束日期。');
+  return memories.filter((m) => {
+    const d = new Date(m.createdAt);
+    const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return (
+      (!scope.from || day >= scope.from) &&
+      (!scope.to || day <= scope.to) &&
+      (!scope.category || scope.category === '全部' || scope.category === m.category) &&
+      (!scope.ids || scope.ids.includes(m.id))
+    );
+  });
+}
+export function observationCandidates(memories: Memory[], limit = 30): Memory[] {
+  const sorted = memories
+    .filter((m) => memoryText(m).trim())
+    .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  if (sorted.length <= limit) return sorted;
+  return Array.from(
+    { length: limit },
+    (_, i) => sorted[Math.round((i * (sorted.length - 1)) / (limit - 1))],
+  );
+}
+export function allAttachments(library: Library): Attachment[] {
+  return [
+    ...new Map(
+      [
+        ...library.memories.flatMap((m) => m.attachments),
+        ...(library.composerDraft?.attachments || []),
+      ].map((a) => [a.id, a]),
+    ).values(),
+  ];
+}
+export function validateDraftState(library: Library): void {
+  const original = library.composerDraft?.editingId
+    ? library.memories.find((m) => m.id === library.composerDraft!.editingId)
+    : undefined;
+  validateLibrary({
+    ...emptyLibrary(),
+    draft: library.draft,
+    composerDraft: library.composerDraft,
+    memories: original ? [original] : [],
+  });
+}
+export function textOnlyLibrary(library: Library): Library {
+  return {
+    ...library,
+    memories: library.memories.map((m) => ({ ...m, text: memoryText(m), attachments: [] })),
+    composerDraft: library.composerDraft
+      ? {
+          ...library.composerDraft,
+          text: [
+            library.composerDraft.text,
+            ...library.composerDraft.attachments.map((a) => a.transcript?.text || ''),
+          ]
+            .filter(Boolean)
+            .join('\n\n'),
+          attachments: [],
+        }
+      : undefined,
+  };
+}
+export function importSummary(current: Library, incoming: Library): string {
+  const conflicts = incoming.memories.filter((m) =>
+    current.memories.some((old) => old.id === m.id && JSON.stringify(old) !== JSON.stringify(m)),
+  ).length;
+  return `备份含 ${incoming.memories.length} 条记录、${incoming.insights.length} 条认识、${allAttachments(incoming).length} 个附件。与本机有 ${conflicts} 条同编号但内容不同的记录。恢复会替换本机 ${current.memories.length} 条记录和草稿，不进行合并。恢复前自动保留一份本机快照，可撤销恢复。`;
 }
 function object(v: unknown): v is Record<string, any> {
   return !!v && typeof v === 'object' && !Array.isArray(v);
@@ -122,9 +309,67 @@ export function validateLibrary(value: unknown): Library {
       )
         throw new Error('备份附件信息无效。');
       attachmentIds.add(a.id);
+      if (a.transcript !== undefined) {
+        const t = a.transcript;
+        if (
+          a.kind !== 'audio' ||
+          !object(t) ||
+          !str(t.text) ||
+          !Array.isArray(t.segments) ||
+          t.segments.length > 10000 ||
+          !t.segments.every(
+            (s: any) =>
+              object(s) &&
+              Number.isFinite(s.start) &&
+              s.start >= 0 &&
+              Number.isFinite(s.end) &&
+              s.end >= s.start &&
+              str(s.text),
+          )
+        )
+          throw new Error('录音转写数据无效。');
+      }
     }
   }
   const insightIds = new Set<string>();
+  if (value.composerDraft !== undefined) {
+    const d = value.composerDraft;
+    if (
+      !object(d) ||
+      !str(d.text) ||
+      !str(d.category, 40) ||
+      !date(d.updatedAt) ||
+      (d.editingId !== undefined && !ids.has(d.editingId))
+    )
+      throw new Error('草稿信息无效。');
+    validateLibrary({
+      version: 1,
+      draft: '',
+      insights: [],
+      memories: [
+        {
+          id: 'draft',
+          text: d.text,
+          category: d.category,
+          createdAt: d.updatedAt,
+          updatedAt: d.updatedAt,
+          starred: false,
+          history: [],
+          attachments: d.attachments,
+        },
+      ],
+    });
+    for (const a of d.attachments)
+      if (
+        attachmentIds.has(a.id) &&
+        !value.memories.some(
+          (m: Memory) =>
+            m.id === d.editingId &&
+            m.attachments.some((old) => old.id === a.id && old.uri === a.uri),
+        )
+      )
+        throw new Error('草稿附件编号冲突。');
+  }
   for (const i of value.insights) {
     if (
       !object(i) ||
@@ -140,7 +385,11 @@ export function validateLibrary(value: unknown): Library {
       !i.sourceIds.every((id: unknown) => typeof id === 'string' && ids.has(id)) ||
       (i.origin === 'ai' && i.sourceIds.length === 0 && i.sourceChanged !== true) ||
       (i.sourceChanged !== undefined && typeof i.sourceChanged !== 'boolean') ||
-      (i.model !== undefined && !str(i.model, 300))
+      (i.model !== undefined && !str(i.model, 300)) ||
+      (i.counterSourceIds !== undefined &&
+        (!Array.isArray(i.counterSourceIds) ||
+          !i.counterSourceIds.every((id: string) => ids.has(id)))) ||
+      (i.changeNote !== undefined && !str(i.changeNote, 2000))
     )
       throw new Error('备份中的个人档案缺少有效来源。');
     insightIds.add(i.id);
@@ -172,7 +421,7 @@ export function parseObservations(raw: string, sources: Memory[], model: string)
   if (!Array.isArray(list)) throw new Error('模型返回的观察格式不正确。');
   const allowed = new Set(sources.map((m) => m.id));
   const valid = list
-    .slice(0, 5)
+    .slice(0, 3)
     .filter(
       (x) =>
         object(x) &&
@@ -191,6 +440,10 @@ export function parseObservations(raw: string, sources: Memory[], model: string)
     status: 'pending',
     origin: 'ai',
     sourceIds: [...new Set<string>(x.sourceIds)],
+    counterSourceIds: Array.isArray(x.counterSourceIds)
+      ? [...new Set<string>(x.counterSourceIds.filter((id: string) => allowed.has(id)))]
+      : [],
+    changeNote: str(x.changeNote, 2000) ? x.changeNote : '',
     model,
     createdAt: new Date().toISOString(),
     history: [],

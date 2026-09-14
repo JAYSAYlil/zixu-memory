@@ -2,16 +2,19 @@
   "expo": {
     "name": "自叙",
     "slug": "zixu-memory",
-    "version": "0.5.0",
+    "version": "0.6.11",
     "icon": "./assets/say2.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "zixu",
     "android": {
       "package": "app.zixu.memory",
-      "versionCode": 15,
+      "versionCode": 28,
+      "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false,
-      "permissions": ["RECORD_AUDIO"],
+      "permissions": [
+        "RECORD_AUDIO"
+      ],
       "blockedPermissions": [
         "android.permission.READ_MEDIA_AUDIO",
         "android.permission.READ_MEDIA_VIDEO",

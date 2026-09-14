@@ -1,6 +1,6 @@
 {
   "name": "zixu-mobile",
-  "version": "0.5.0",
+  "version": "0.6.11",
   "main": "index.ts",
   "dependencies": {
     "expo": "~57.0.22",
@@ -35,11 +35,12 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/core.test.ts",
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
     "preview": "node scripts/serve.cjs",
     "test:ui": "node scripts/smoke.cjs",
     "test:ai": "node scripts/ai-smoke.cjs",
-    "prepare:native": "node scripts/prepare-native.cjs"
+    "prepare:native": "node scripts/prepare-native.cjs",
+    "test:reliability": "node scripts/reliability-smoke.cjs"
   },
   "private": true
 }

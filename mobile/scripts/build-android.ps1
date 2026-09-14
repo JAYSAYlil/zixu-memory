@@ -34,6 +34,7 @@ try {
     if ($LASTEXITCODE -ne 0) { throw 'APK 构建失败，请检查上面的错误。' }
     $outputDirectory = Join-Path $projectDirectory '..\artifacts'
     New-Item -ItemType Directory -Force -Path $outputDirectory | Out-Null
-    Copy-Item -LiteralPath android/app/build/outputs/apk/release/app-release.apk -Destination (Join-Path $outputDirectory 'zixu-0.5.0-arm64.apk')
-    Write-Output "APK 已生成：$outputDirectory\zixu-0.5.0-arm64.apk"
+    $releaseVersion = (Get-Content -LiteralPath 'app.json' -Raw | ConvertFrom-Json).expo.version
+    Copy-Item -LiteralPath android/app/build/outputs/apk/release/app-release.apk -Destination (Join-Path $outputDirectory "zixu-$releaseVersion-arm64.apk")
+    Write-Output "APK 已生成：$outputDirectory\zixu-$releaseVersion-arm64.apk"
 } finally { Pop-Location }

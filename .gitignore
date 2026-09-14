@@ -18,3 +18,7 @@ mobile/playwright-report/
 mobile/.git-本地备份/
 mobile/.claude/
 .mobile-workspace/
+/问题.*
+/docs/SESSION-RULES.md
+/docs/RELEASE-0.6.0.md
+/docs/RELEASE-0.6.1.md

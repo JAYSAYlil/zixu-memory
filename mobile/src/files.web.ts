@@ -1,7 +1,10 @@
-import { validateLibrary, uid, type Attachment, type Library } from './core';
+import { validateLibrary, uid, textOnlyLibrary, type Attachment, type Library } from './core';
 export async function exportSelf(content: string) {
   const url = URL.createObjectURL(new Blob([content], { type: 'text/markdown;charset=utf-8' }));
-  const a = document.createElement('a'); a.href = url; a.download = 'SKILL.md'; a.click();
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'SKILL.md';
+  a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 export async function keepFile(
@@ -23,15 +26,25 @@ export async function keepFile(
     mime,
     duration,
     uri: data,
-    name: kind === 'photo' ? 'photo.jpg' : 'audio.webm',
+    name: kind === 'photo' ? 'photo.jpg' : kind === 'audio' ? 'audio.webm' : 'file.bin',
   };
 }
 export async function deleteFiles(_attachments: Attachment[]) {}
-export async function exportLibrary(library: Library) {
+export async function cleanupOrphans(_library: Library) {}
+export async function exportLibrary(library: Library, textOnly = false) {
   const url = URL.createObjectURL(
-    new Blob([JSON.stringify({ format: 'zixu-web-preview', version: 1, library })], {
-      type: 'application/json',
-    }),
+    new Blob(
+      [
+        JSON.stringify({
+          format: 'zixu-web-preview',
+          version: 1,
+          library: textOnly ? textOnlyLibrary(library) : library,
+        }),
+      ],
+      {
+        type: 'application/json',
+      },
+    ),
   );
   const a = document.createElement('a');
   a.href = url;

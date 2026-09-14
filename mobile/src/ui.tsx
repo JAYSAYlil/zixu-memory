@@ -126,15 +126,27 @@ export function Button({
     }).start();
   };
   return (
-    <Animated.View style={[style, { transform: [{ scale }] }, disabled && { opacity: 0.4 }]}>
+    <Animated.View
+      style={[
+        { maxWidth: '100%' },
+        style,
+        { transform: [{ scale }] },
+        disabled && { opacity: 0.4 },
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel ?? label}
         disabled={disabled}
+        accessibilityState={{ disabled: !!disabled }}
         onPress={onPress}
         onPressIn={() => setPressed(true)}
         onPressOut={() => setPressed(false)}
-        style={[styles.button, compact && { paddingHorizontal: 12 }, primary && { backgroundColor: C.accent, borderColor: C.accent }]}
+        style={[
+          styles.button,
+          compact && { paddingHorizontal: 12 },
+          primary && { backgroundColor: C.accent, borderColor: C.accent },
+        ]}
       >
         {icon && <Icon name={icon} size={18} color={primary ? C.onAccent : C.ink} />}
         <Text style={[styles.buttonText, primary && { color: C.onAccent }]}>{label}</Text>
@@ -161,22 +173,38 @@ export function IconButton({
   const scale = useRef(new Animated.Value(1)).current;
   return (
     <Animated.View style={{ transform: [{ scale }] }}>
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      onPressIn={() => Animated.spring(scale, { toValue: 0.97, stiffness: 500, damping: 50, mass: 1, useNativeDriver: true }).start()}
-      onPressOut={() => Animated.spring(scale, { toValue: 1, stiffness: 500, damping: 50, mass: 1, useNativeDriver: true }).start()}
-      style={{
-        width: 46,
-        height: 46,
-        alignItems: 'center',
-        justifyContent: 'center',
-        ...(round ? { backgroundColor: C.wash, borderRadius: 23 } : {}),
-      }}
-    >
-      <Icon name={name} color={color} />
-    </Pressable>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        onPressIn={() =>
+          Animated.spring(scale, {
+            toValue: 0.97,
+            stiffness: 500,
+            damping: 50,
+            mass: 1,
+            useNativeDriver: true,
+          }).start()
+        }
+        onPressOut={() =>
+          Animated.spring(scale, {
+            toValue: 1,
+            stiffness: 500,
+            damping: 50,
+            mass: 1,
+            useNativeDriver: true,
+          }).start()
+        }
+        style={{
+          width: 46,
+          height: 46,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...(round ? { backgroundColor: C.wash, borderRadius: 23 } : {}),
+        }}
+      >
+        <Icon name={name} color={color} />
+      </Pressable>
     </Animated.View>
   );
 }
@@ -193,13 +221,25 @@ export function ScalePressable({
 }) {
   const scale = useRef(new Animated.Value(1)).current;
   const spring = (value: number) => () =>
-    Animated.spring(scale, { toValue: value, stiffness: 500, damping: 50, mass: 1, useNativeDriver: true }).start();
+    Animated.spring(scale, {
+      toValue: value,
+      stiffness: 500,
+      damping: 50,
+      mass: 1,
+      useNativeDriver: true,
+    }).start();
   return (
     <AnimatedPressable
       {...rest}
       style={[{ transform: [{ scale }] }, style]}
-      onPressIn={(e) => { spring(0.97)(); rest.onPressIn?.(e); }}
-      onPressOut={(e) => { spring(1)(); rest.onPressOut?.(e); }}
+      onPressIn={(e) => {
+        spring(0.97)();
+        rest.onPressIn?.(e);
+      }}
+      onPressOut={(e) => {
+        spring(1)();
+        rest.onPressOut?.(e);
+      }}
     >
       {children}
     </AnimatedPressable>
@@ -278,21 +318,29 @@ export function Empty({ title, body }: { title: string; body: string }) {
     </View>
   );
 }
-const makeStyles = (C: typeof lightColors) => StyleSheet.create({
-  button: {
-    minHeight: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: C.line,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  buttonText: { fontSize: 14, lineHeight: 20, fontWeight: '600', color: C.ink },
-  empty: { paddingVertical: 36, alignItems: 'flex-start' },
-  emptyTitle: { fontSize: 20, lineHeight: 28, color: C.ink, marginBottom: 8 },
-  emptyBody: { fontSize: 15, lineHeight: 24, color: C.muted, maxWidth: 300 },
-});
+const makeStyles = (C: typeof lightColors) =>
+  StyleSheet.create({
+    button: {
+      minHeight: 48,
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 14,
+      borderWidth: 1,
+      borderColor: C.line,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 8,
+    },
+    buttonText: {
+      fontSize: 14,
+      lineHeight: 20,
+      fontWeight: '600',
+      color: C.ink,
+      flexShrink: 1,
+      textAlign: 'center',
+    },
+    empty: { paddingVertical: 36, alignItems: 'flex-start' },
+    emptyTitle: { fontSize: 20, lineHeight: 28, color: C.ink, marginBottom: 8 },
+    emptyBody: { fontSize: 15, lineHeight: 24, color: C.muted, maxWidth: 300 },
+  });
