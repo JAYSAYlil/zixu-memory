@@ -49,6 +49,17 @@ test('self question with only stale profile makes no paid request', async () => 
   };
   await assert.rejects(askSelf(config, '我怎么看', [memory], [insight]), /先在/);
 });
+test('self answer accepts known evidence and rejects invented or missing citations', async () => {
+  let content = '可能更需要休息【i】';
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ choices: [{ message: { content } }] }));
+  const profile = [{ ...insight, sourceChanged: false }];
+  assert.equal(await askSelf(config, '选择', [memory], profile), content);
+  content = '随意编造【unknown】';
+  await assert.rejects(askSelf(config, '选择', [memory], profile), /不存在/);
+  content = '不带依据的断言';
+  await assert.rejects(askSelf(config, '选择', [memory], profile), /缺少依据/);
+});
 test('external cancellation aborts fetch and distinguishes timeout from user cancellation', async () => {
   const controller = new AbortController(),
     stages: string[] = [];

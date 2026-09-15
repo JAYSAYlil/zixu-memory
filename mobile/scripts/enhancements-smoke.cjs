@@ -1,0 +1,46 @@
+const { chromium, expect } = require('@playwright/test');
+(async () => {
+  const browser = await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+  try {
+    const page=await browser.newPage({viewport:{width:393,height:852}});
+    const errors=[]; page.on('pageerror',e=>errors.push(e.message));
+    const button=name=>page.getByRole('button',{name,exact:true});
+    await page.goto('http://127.0.0.1:4173');
+    await expect(page.getByText('从一件小事开始',{exact:true})).toBeVisible();
+    await button('开始记录').click();
+    await page.evaluate(()=>localStorage.setItem('zixu.preview.v1',JSON.stringify({version:1,draft:'',memories:[{id:'m1',text:'我喜欢自己安排工作节奏。',category:'工作',createdAt:'2026-01-01T12:00:00Z',updatedAt:'2026-01-01T12:00:00Z',starred:false,history:[],attachments:[{id:'f1',kind:'file',name:'example.txt',mime:'text/plain',uri:'data:text/plain;base64,aGVsbG8='}]}],insights:[{id:'i1',text:'我重视自主。',status:'confirmed',origin:'self',category:'关于我',sourceIds:[],history:[],createdAt:'2026-01-01T12:00:00Z'}]})));
+    await page.reload(); await button('设置').click();
+    await page.getByLabel('API Key',{exact:true}).fill('test-only');
+    await button('保存设置').click();
+    await page.getByLabel('备份密码',{exact:true}).fill('test-password-1234');
+    await page.getByLabel('确认备份密码',{exact:true}).fill('mismatch');
+    await expect(button('导出加密完整备份')).toBeDisabled();
+    await page.getByLabel('确认备份密码',{exact:true}).fill('test-password-1234');
+    await expect(button('导出加密完整备份')).toBeEnabled();
+    await button('查看空间占用').click();
+    await expect(page.getByText('example.txt · 5 B',{exact:true})).toBeVisible();
+    await button('移除附件 example.txt').click();
+    await button('取消').click();
+    const state=await page.evaluate(()=>JSON.parse(localStorage.getItem('zixu.preview.v1')));
+    if(state.memories[0].attachments.length!==1)throw Error('Cancel removed attachment');
+    await button('返回').click();
+    await page.route('https://api.deepseek.com/**',route=>route.fulfill({json:{choices:[{message:{content:'你确认过的：我重视自主【i1】。可能的倾向：安排工作时保留空间【m1】。还需要想一想：这次有哪些限制？'}}]}}));
+    await page.getByRole('tab',{name:'认识我',exact:true}).click();
+    await page.getByLabel('询问自己的问题',{exact:true}).fill('如何安排工作？');
+    await button('听听自己的答案').click();
+    const consent=page.getByRole('button',{name:/同意|发送|继续/});
+    if(await consent.count())await consent.last().click();
+    await expect(button('不太符合')).toBeVisible();
+    await page.getByText('〔相关经历〕',{exact:true}).click();
+    await expect(page.getByText('我喜欢自己安排工作节奏。',{exact:true}).last()).toBeVisible();
+    await button('返回').last().click();
+    await button('现在变了').click();
+    await page.getByLabel('自我认识',{exact:true}).fill('现在我也愿意和别人共同安排。');
+    await button('保存并确认').click();
+    const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zixu.preview.v1')));
+    if(!saved.insights.some(i=>i.origin==='self'&&i.status==='confirmed'&&i.text.includes('共同安排')))throw Error('Feedback not saved');
+    await page.screenshot({path:'../artifacts/enhancements-profile.png'});
+    if(errors.length)throw Error(errors.join('\n'));
+    console.log('PASS onboarding, backup password guard, attachment size, cancel cleanup, evidence links, confirmed feedback');
+  } finally {await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1});

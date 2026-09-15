@@ -126,18 +126,41 @@ export function reviseMemory(
     ),
   };
 }
+const searchCache = new WeakMap<Memory, string>();
+function searchable(m: Memory) {
+  let text = searchCache.get(m);
+  if (text === undefined) {
+    text = memoryText(m).toLocaleLowerCase();
+    searchCache.set(m, text);
+  }
+  return text;
+}
 export function searchMemories(memories: Memory[], query: string): Memory[] {
   const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
   return memories.filter((m) =>
-    terms.every((t) => `${memoryText(m)} ${m.category}`.toLocaleLowerCase().includes(t)),
+    terms.every((t) => `${searchable(m)} ${m.category.toLocaleLowerCase()}`.includes(t)),
   );
 }
 export function recallCandidates(memories: Memory[], query: string): Memory[] {
   const grams = retrievalTerms(query);
+  const synonyms = [
+    ['工作', '上班', '职场', '职业'],
+    ['选择', '决定', '抉择'],
+    ['压力', '焦虑', '紧张'],
+    ['朋友', '友谊', '友情'],
+    ['休息', '放松', '休假'],
+    ['学习', '读书', '课程'],
+  ];
+  const expanded = synonyms.filter((group) => group.some((word) => query.includes(word))).flat();
   return memories
     .map((m) => {
-      const text = memoryText(m).toLowerCase();
-      return { m, score: grams.reduce((n, g) => n + (text.includes(g) ? g.length : 0), 0) };
+      const text = searchable(m);
+      return {
+        m,
+        score:
+          grams.reduce((n, g) => n + (text.includes(g) ? g.length : 0), 0) +
+          expanded.reduce((n, word) => n + (text.includes(word) ? 0.5 : 0), 0),
+      };
     })
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score || b.m.createdAt.localeCompare(a.m.createdAt))
@@ -301,7 +324,7 @@ export function validateLibrary(value: unknown): Library {
         !str(a.id, 100) ||
         !/^[a-zA-Z0-9-]+$/.test(a.id) ||
         attachmentIds.has(a.id) ||
-        !['photo', 'audio'].includes(a.kind) ||
+        !['photo', 'audio', 'file'].includes(a.kind) ||
         !str(a.uri) ||
         !str(a.name, 300) ||
         !str(a.mime, 100) ||

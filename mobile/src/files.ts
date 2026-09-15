@@ -1,5 +1,6 @@
 import { File, FileMode } from 'expo-file-system';
 import { encodeArchive, decodeArchive, toBase64 } from './archive';
+import { encryptLines, decryptLines } from './encryptedArchive';
 import { readRecovery } from './persistence';
 import * as FS from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
@@ -14,6 +15,14 @@ import {
   type Library,
 } from './core';
 const directory = () => `${FS.documentDirectory}attachments/`;
+export async function attachmentSize(a: Attachment) {
+  const info = await FS.getInfoAsync(a.uri);
+  return info.exists && !info.isDirectory ? info.size : 0;
+}
+export async function openAttachment(a: Attachment) {
+  if (!(await Sharing.isAvailableAsync())) throw new Error('此设备没有可用的打开或分享方式。');
+  await Sharing.shareAsync(a.uri, { mimeType: a.mime, dialogTitle: '打开或分享 ' + a.name });
+}
 export async function exportSelf(content: string) {
   if (!(await Sharing.isAvailableAsync())) throw new Error('此设备没有可用的文件分享方式。');
   const file = `${FS.cacheDirectory}SKILL.md`;
@@ -72,7 +81,7 @@ export async function cleanupOrphans(library: Library) {
 }
 type Packed = { data: string; sha256: string };
 const hash = (text: string) => Crypto.digestStringAsync(Crypto.CryptoDigestAlgorithm.SHA256, text);
-export async function exportLibrary(library: Library, textOnly = false) {
+export async function exportLibrary(library: Library, textOnly = false, password = '') {
   if (!(await Sharing.isAvailableAsync())) throw new Error('此设备没有可用的文件分享方式。');
   const file = new File(FS.cacheDirectory + 'zixu-' + uid() + (textOnly ? '-text.json' : '.zixu'));
   file.create();
@@ -89,7 +98,7 @@ export async function exportLibrary(library: Library, textOnly = false) {
     else {
       const handle = file.open(FileMode.WriteOnly);
       try {
-        for await (const line of encodeArchive(library, {
+        const lines = encodeArchive(library, {
           hash,
           async *readMedia(a) {
             const source = new File(a.uri);
@@ -102,7 +111,10 @@ export async function exportLibrary(library: Library, textOnly = false) {
               reader.close();
             }
           },
-        }))
+        });
+        for await (const line of password
+          ? encryptLines(lines, password, Crypto.getRandomBytes(32))
+          : lines)
           handle.writeBytes(new TextEncoder().encode(line));
       } finally {
         handle.close();
@@ -136,14 +148,14 @@ async function* fileLines(file: File) {
     reader.close();
   }
 }
-async function importStream(file: File) {
+async function importStream(file: File, password?: string) {
   const staging = directory() + 'restore-' + uid() + '/';
   await FS.makeDirectoryAsync(staging, { intermediates: true });
   const cleanup = () => FS.deleteAsync(staging, { idempotent: true });
   const initialized = new Set<string>();
   try {
     const library = await decodeArchive(
-      fileLines(file),
+      password !== undefined ? decryptLines(fileLines(file), password) : fileLines(file),
       hash,
       async (id, bytes) => {
         const target = new File(staging + id);
@@ -166,7 +178,7 @@ async function importStream(file: File) {
     throw e;
   }
 }
-export async function chooseImport(): Promise<{
+export async function chooseImport(password = ''): Promise<{
   library: Library;
   cleanup: () => Promise<void>;
 } | null> {
@@ -184,6 +196,7 @@ export async function chooseImport(): Promise<{
   } finally {
     probe.close();
   }
+  if (prefix.startsWith('{"format":"zixu-encrypted-v1"')) return importStream(inputFile, password);
   if (prefix.startsWith('{"payload":')) return importStream(inputFile);
   if ((picked.size || inputFile.size || 0) > 50 * 1024 * 1024)
     throw new Error('备份超过 50 MB，当前版本无法导入。');

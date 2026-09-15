@@ -2,6 +2,7 @@ const {
   withAndroidManifest,
   withDangerousMod,
   withProjectBuildGradle,
+  withGradleProperties,
 } = require('expo/config-plugins');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -11,6 +12,13 @@ const vector = `<vector xmlns:android="http://schemas.android.com/apk/res/androi
 <path android:fillColor="#F8F6F0" android:pathData="M41,38h26v3h-26zM41,49h26v3h-26zM41,60h17v3h-17z"/>
 </vector>`;
 module.exports = (config) => {
+  config = withGradleProperties(config, c => {
+    for (const key of ['android.enableMinifyInReleaseBuilds', 'android.enableShrinkResourcesInReleaseBuilds']) {
+      c.modResults = c.modResults.filter(p => p.key !== key);
+      c.modResults.push({ type: 'property', key, value: 'true' });
+    }
+    return c;
+  });
   config = withProjectBuildGradle(config, (c) => {
     if (!c.modResults.contents.includes('zixuNdkVersion'))
       c.modResults.contents =

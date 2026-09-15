@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -66,6 +66,11 @@ import {
   cleanupOrphans,
 } from './files';
 import { transcribe } from './transcribe';
+import { BackupPanel } from './BackupPanel';
+import { AttachmentInfo } from './AttachmentInfo';
+import { StoragePanel } from './StoragePanel';
+import { Welcome } from './Welcome';
+import appConfig from '../app.json';
 import { observe, recall, testConnection, askSelf } from './ai';
 import { selfSkill, confirmedSelf, aiProfile } from './self';
 import { demoLibrary } from './demo';
@@ -132,6 +137,7 @@ export default function Main() {
   const [profileText, setProfileText] = useState('');
   const [selfQuestion, setSelfQuestion] = useState('');
   const [selfAnswer, setSelfAnswer] = useState('');
+  const [transcriptionErrors, setTranscriptionErrors] = useState<Record<string, string>>({});
   const [selfBasis, setSelfBasis] = useState('');
   const [selfModel, setSelfModel] = useState('');
   const [exportPreview, setExportPreview] = useState('');
@@ -400,7 +406,10 @@ export default function Main() {
   }
   async function transcribeClip(a: Attachment) {
     if (demo) throw new Error('示例模式不发送录音。');
-    const result = await transcribe(speechConfig, a, requestOptions());
+    setTranscriptionErrors(errors => ({ ...errors, [a.id]: '' }));
+    let result;
+    try { result = await transcribe(speechConfig, a, requestOptions()); }
+    catch (error) { setTranscriptionErrors(errors => ({...errors, [a.id]: error instanceof Error ? error.message : '转写未完成，录音已保留。'})); throw error; }
     setAttachments((items) =>
       items.map((item) => (item.id === a.id ? { ...item, transcript: result } : item)),
     );
@@ -644,8 +653,8 @@ export default function Main() {
     setAnswer('');
     setAnswerSources([]);
   }, [data.insights, data.memories, demo]);
-  async function restore() {
-    const result = await chooseImport();
+  async function restore(password = '') {
+    const result = await chooseImport(password);
     if (!result) return;
     const yes = await confirmAction(
       '恢复这份备份？',
@@ -716,6 +725,19 @@ export default function Main() {
     });
     return () => sub.remove();
   }, [tab]);
+  const recallMemories = useMemo(
+    () =>
+      scopedMemories(data.memories, {
+        from: scopeFrom,
+        to: scopeTo,
+        category: scopeCategory,
+      }),
+    [data.memories, scopeFrom, scopeTo, scopeCategory],
+  );
+  const searchResults = useMemo(
+    () => searchMemories(recallMemories, query),
+    [recallMemories, query],
+  );
   const selfAsk = (
     <>
       <View style={s.askPanel}>
@@ -744,8 +766,53 @@ export default function Main() {
           <View style={s.answer}>
             <Text style={s.eyebrow}>基于本次资料的推演 · {selfModel}</Text>
             <Text selectable style={s.body}>
-              {selfAnswer}
+              {selfAnswer.split(/(【[^】]+】)/g).map((part, n) => {
+                const id = part.startsWith('【') ? part.slice(1, -1) : '';
+                const insight = data.insights.find((i) => i.id === id);
+                const memory = data.memories.find((m) => m.id === id);
+                return insight || memory ? (
+                  <Text
+                    key={n}
+                    accessibilityRole="link"
+                    style={{ color: C.accent }}
+                    onPress={() => {
+                      if (memory) openDetail(memory.id);
+                      else if (insight) {
+                        setProfileText(insight.text);
+                        setProfileEditor(insight);
+                      }
+                    }}
+                  >
+                    {insight ? '〔已确认的认识〕' : '〔相关经历〕'}
+                  </Text>
+                ) : (
+                  part
+                );
+              })}
             </Text>
+            <Text style={s.footnote}>
+              这个回答符合现在的你吗？补充后由你亲自保存，不会自动改变认识。
+            </Text>
+            <View style={[s.inline, { flexWrap: 'wrap', gap: 8, marginVertical: 12 }]}>
+              {['符合我', '不太符合', '现在变了'].map((label) => (
+                <Button
+                  key={label}
+                  compact
+                  label={label}
+                  disabled={!!demo}
+                  onPress={() => {
+                    setProfileText(
+                      label === '符合我'
+                        ? '我认同的部分是：'
+                        : label === '现在变了'
+                          ? '以前我在意的是……现在我更在意：'
+                          : '这次回答不符合我的地方是……我的真实想法是：',
+                    );
+                    setProfileEditor('new');
+                  }}
+                />
+              ))}
+            </View>
             <Button
               compact
               label={showSelfBasis ? '收起参考资料' : '查看参考资料'}
@@ -793,12 +860,6 @@ export default function Main() {
     (m) => filter === '全部' || (filter === '收藏' ? m.starred : m.category === filter),
   );
   const pending = data.insights.filter((i) => i.status === 'pending');
-  const recallMemories = scopedMemories(data.memories, {
-    from: scopeFrom,
-    to: scopeTo,
-    category: scopeCategory,
-  });
-  const searchResults = searchMemories(recallMemories, query);
   const confirmed = data.insights.filter((i) => i.status === 'confirmed');
   const exportable = confirmed.filter((i) => !i.sourceChanged);
   const shelved = data.insights.filter((i) => i.status === 'rejected');
@@ -869,7 +930,7 @@ export default function Main() {
                 }
                 keyExtractor={(m) => m.id}
                 renderItem={({ item }) => (
-                  <MemoryRow memory={item} onPress={() => openDetail(item.id)} />
+                  <MemoryRow memory={item} query={key === 'recall' ? query : ''} onPress={() => openDetail(item.id)} />
                 )}
                 initialNumToRender={8}
                 maxToRenderPerBatch={8}
@@ -1619,10 +1680,11 @@ export default function Main() {
                 />
                 <Button
                   compact
-                  label={a.transcript ? '重新转写' : '转写为文字'}
+                  label={transcriptionErrors[a.id] ? '重试转写' : a.transcript ? '重新转写' : '转写为文字'}
                   disabled={!!busy || recordingSession || !!demo}
                   onPress={() => void run('转写中', () => transcribeClip(a))}
                 />
+                {!!transcriptionErrors[a.id] && <Text style={s.footnote}>{transcriptionErrors[a.id]}</Text>}
               </View>
               <IconButton
                 name="close"
@@ -1738,6 +1800,9 @@ export default function Main() {
                 </View>
               ),
             )}
+            {selected.attachments.map((a) => (
+              <AttachmentInfo key={'info-' + a.id} attachment={a} />
+            ))}
             {selected.history.length > 0 && (
               <View style={s.history}>
                 <Button
@@ -1927,7 +1992,7 @@ export default function Main() {
             <Button compact label="取消请求" onPress={() => request.current?.abort()} />
           </View>
         )}
-        <Text style={s.eyebrow}>自叙 · 0.6.1</Text>
+        <Text style={s.eyebrow}>自叙 · {appConfig.expo.version}</Text>
         <Text style={s.settingsTitle}>按你的习惯来。</Text>
         <Text style={s.description}>记录留在本机，外观和整理方式由你选择。</Text>
         <View style={s.settingsGroup}>
@@ -2080,8 +2145,10 @@ export default function Main() {
         <View style={s.settingsGroup}>
           <Text style={s.sectionTitle}>数据与迁移</Text>
           <Text style={s.description}>
-            备份包含原文、附件、个人档案与修订历史，不包含 Key。备份文件未加密，请存放在可信位置。
+            备份包含原文、附件、个人档案与修订历史，不包含
+            Key。建议使用加密备份；下方普通导出不加密。
           </Text>
+          <BackupPanel disabled={!!busy || !!demo} run={run} restore={restore} />
           <View style={s.inline}>
             <Button
               label="导出完整备份"
@@ -2099,18 +2166,13 @@ export default function Main() {
               disabled={!!busy || !!demo}
               onPress={() => void run('恢复中', undoRestore)}
             />
-            <Button
-              label="恢复"
-              icon="upload"
-              disabled={!!busy || !!demo}
-              onPress={() => void run('恢复中', restore)}
-            />
           </View>
           <Text style={s.footnote}>
             安卓完整备份按块读写，不再限制 30 MB；旧 JSON 仍可导入。网页预览备份仍限 50
             MB。还没有云同步；卸载前请先备份。
           </Text>
         </View>
+        <StoragePanel disabled={!!busy || !!demo || composer} run={run} />
         <Button
           disabled={!!busy}
           label={demo ? '退出示例' : '浏览示例内容'}
@@ -2139,6 +2201,7 @@ export default function Main() {
         />
       )}
       <DialogHost />
+      <Welcome />
       <Modal
         visible={!!notice}
         transparent

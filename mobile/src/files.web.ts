@@ -30,8 +30,20 @@ export async function keepFile(
   };
 }
 export async function deleteFiles(_attachments: Attachment[]) {}
+export async function attachmentSize(a: Attachment) {
+  return (await (await fetch(a.uri)).blob()).size;
+}
+export async function openAttachment(a: Attachment) {
+  const url = URL.createObjectURL(await (await fetch(a.uri)).blob());
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = a.name;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
 export async function cleanupOrphans(_library: Library) {}
-export async function exportLibrary(library: Library, textOnly = false) {
+export async function exportLibrary(library: Library, textOnly = false, password = '') {
+  if (password) throw new Error('加密完整备份请在安卓应用内使用。网页仅用于界面预览。');
   const url = URL.createObjectURL(
     new Blob(
       [
@@ -52,7 +64,7 @@ export async function exportLibrary(library: Library, textOnly = false) {
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
-export async function chooseImport(): Promise<{
+export async function chooseImport(_password = ''): Promise<{
   library: Library;
   cleanup: () => Promise<void>;
 } | null> {

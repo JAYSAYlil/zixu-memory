@@ -1,8 +1,10 @@
 {
   "name": "zixu-mobile",
-  "version": "0.6.11",
+  "version": "0.7.0",
   "main": "index.ts",
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
+    "@noble/hashes": "^2.4.0",
     "expo": "~57.0.22",
     "expo-audio": "~57.0.5",
     "expo-blur": "~57.0.3",

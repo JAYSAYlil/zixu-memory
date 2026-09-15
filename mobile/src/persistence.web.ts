@@ -37,11 +37,16 @@ export async function writeConfig(value: ModelConfig) {
 
 const privatePreferences = new Map<string, string>();
 export async function readPreference(name: string) {
+  if (name === 'welcome-v1' || name === 'last-backup') return localStorage.getItem('zixu.' + name);
   return name === 'appearance'
     ? localStorage.getItem('zixu.appearance')
     : privatePreferences.get(name) || null;
 }
 export async function writePreference(name: string, value: string) {
+  if (name === 'welcome-v1' || name === 'last-backup') {
+    localStorage.setItem('zixu.' + name, value);
+    return;
+  }
   if (name === 'appearance') localStorage.setItem('zixu.appearance', value);
   else privatePreferences.set(name, value);
 }

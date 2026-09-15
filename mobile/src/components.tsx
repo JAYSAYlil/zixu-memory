@@ -133,9 +133,14 @@ export function AudioClip({
     </View>
   );
 }
-export function MemoryRow({ memory: m, onPress }: { memory: Memory; onPress: () => void }) {
+export function MemoryRow({ memory: m, onPress, query = '' }: { memory: Memory; onPress: () => void; query?: string }) {
   const { C } = useTheme();
   const s = useStyles();
+  const original = memoryText(m) || '一条附件记录';
+  const terms = query.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean);
+  const positions = terms.map(t => original.toLocaleLowerCase().indexOf(t)).filter(n=>n>=0);
+  const start = positions.length ? Math.max(0, Math.min(...positions) - 24) : 0;
+  const excerpt = (start ? '…' : '') + original.slice(start, start + 220) + (original.length > start + 220 ? '…' : '');
   return (
     <ScalePressable
       accessibilityRole="button"
@@ -155,7 +160,7 @@ export function MemoryRow({ memory: m, onPress }: { memory: Memory; onPress: () 
           {m.starred && <Icon name="star" size={13} color={C.accent} />}
         </View>
         <Text numberOfLines={4} style={s.memoryText}>
-          {m.text || m.attachments.find((a) => a.transcript)?.transcript?.text || '一段语音记录'}
+          {excerpt}
         </Text>
         {m.attachments.some((a) => a.kind === 'photo') && (
           <Image

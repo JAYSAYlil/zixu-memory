@@ -56,9 +56,22 @@ async function db() {
 }
 export async function readLibrary(): Promise<Library> {
   const d = await db();
-  const memories = await d.getAllAsync<{ body: string }>(
-    'SELECT body FROM memories ORDER BY createdAt DESC, id DESC',
-  );
+  // Read in bounded pages instead of creating one large bridge result. Keep a
+  // stable snapshot during hydration so backup and mutations never see a partial library.
+  const memories = [];
+  let cursor: { createdAt: string; id: string } | undefined;
+  for (;;) {
+    const page: { body: string; createdAt: string; id: string }[] = await d.getAllAsync(
+      cursor
+        ? 'SELECT body, createdAt, id FROM memories WHERE createdAt < ? OR (createdAt = ? AND id < ?) ORDER BY createdAt DESC, id DESC LIMIT 200'
+        : 'SELECT body, createdAt, id FROM memories ORDER BY createdAt DESC, id DESC LIMIT 200',
+      ...(cursor ? [cursor.createdAt, cursor.createdAt, cursor.id] : []),
+    );
+    memories.push(...page.map((r) => JSON.parse(r.body)));
+    if (page.length < 200) break;
+    cursor = page[page.length - 1];
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+  }
   const insights = await d.getAllAsync<{ body: string }>(
     "SELECT body FROM insights ORDER BY json_extract(body, '$.createdAt') DESC, id DESC",
   );
@@ -68,7 +81,7 @@ export async function readLibrary(): Promise<Library> {
   );
   return validateLibrary({
     version: 1,
-    memories: memories.map((r) => JSON.parse(r.body)),
+    memories,
     insights: insights.map((r) => JSON.parse(r.body)),
     ...(draft ? JSON.parse(draft.body) : { draft: '' }),
   });

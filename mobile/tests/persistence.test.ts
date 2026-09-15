@@ -113,6 +113,18 @@ test('failed migration retains legacy snapshot and retries without partial rows'
   assert.equal(recovered.memories.length, 2);
   assert.equal(recovered.draft, old.draft);
 });
+test('pagination retains every row with identical timestamps across page boundaries', async () => {
+  const state = {
+    ...emptyLibrary(),
+    memories: Array.from({ length: 450 }, (_, i) => m('page-' + String(i).padStart(4, '0'))),
+  };
+  await persistence.writeLibrary(state);
+  const actual = await persistence.readLibrary();
+  assert.equal(actual.memories.length, 450);
+  assert.equal(new Set(actual.memories.map((m) => m.id)).size, 450);
+  assert.equal(actual.memories[0].id, 'page-0449');
+  assert.equal(actual.memories[449].id, 'page-0000');
+});
 test.after(() => {
   hooks.deregister();
   database.close();

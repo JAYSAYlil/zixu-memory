@@ -13,6 +13,7 @@ const fs = require('node:fs');
     const shot = async name => { await page.waitForTimeout(350); await page.screenshot({ path: path.join(out, name + '.png') }); };
     const tab = async name => { await page.getByRole('tab', { name, exact: true }).click(); await page.waitForTimeout(350); };
     await page.goto('http://127.0.0.1:4173');
+    await page.getByRole('button', {name:'开始记录',exact:true}).click();
     await page.evaluate(() => localStorage.setItem('zixu.preview.v1', JSON.stringify({ version: 1, draft: '', insights: [], memories: [
       ['leap', '散步时想到，下次可以多留一点时间给自己。', '2024-02-29T12:00:00Z', '日常'],
       ['march', '把工作安排在上午，下午留给想做的事。', '2024-03-01T12:00:00Z', '工作'],
@@ -78,6 +79,7 @@ const fs = require('node:fs');
     for (const [width, height, theme] of [[320,640,'light'], [393,852,'dark'], [620,480,'light']]) {
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ colorScheme: theme });
+      await tab('认识我');
       await button('选择观察范围与经历').click();
       await button('开始日期').click();
       await shot(`calendar-${width}-${theme}`);
@@ -95,7 +97,7 @@ const fs = require('node:fs');
       await button('设置').click();
       await shot(`settings-${width}-${theme}`);
       // Walk every settings action and assert horizontal containment after scrolling into view.
-      for (const name of ['保存设置','保存语音设置','导出完整备份','仅导出文字','恢复','撤销上次恢复']) {
+      for (const name of ['保存设置','保存语音设置','导出完整备份','仅导出文字','选择备份并恢复','撤销上次恢复']) {
         await button(name).scrollIntoViewIfNeeded();
         const rect = await button(name).boundingBox();
         if (rect.x < 0 || rect.x + rect.width > width + 1) throw Error(`${name} overflows ${width}`);
