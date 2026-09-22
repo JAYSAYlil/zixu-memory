@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$JavaHome = $env:JAVA_HOME,
     [string]$AndroidSdk = $env:ANDROID_HOME,
     [string]$GradleHome = '',

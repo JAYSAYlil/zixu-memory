@@ -2,14 +2,14 @@
   "expo": {
     "name": "自叙",
     "slug": "zixu-memory",
-    "version": "0.7.0",
+    "version": "0.8.0",
     "icon": "./assets/say2.png",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "scheme": "zixu",
     "android": {
       "package": "app.zixu.memory",
-      "versionCode": 29,
+      "versionCode": 30,
       "softwareKeyboardLayoutMode": "resize",
       "allowBackup": false,
       "permissions": [

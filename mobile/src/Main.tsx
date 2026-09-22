@@ -91,11 +91,12 @@ import {
   Sheet,
   Field,
 } from './components';
+import { accentNames, accentOrder, accentPalettes, inkOn } from './palette';
 
 const tabOrder = ['record', 'recall', 'profile'] as const;
 
 export default function Main() {
-  const { C, dark, mode, setMode } = useTheme();
+  const { C, dark, mode, setMode, accent, setAccent } = useTheme();
   const s = useStyles();
   const stored = useLibrary();
   const [demo, setDemo] = useState<Library | null>(null);
@@ -174,6 +175,8 @@ export default function Main() {
   const pagerRef = useRef<ScrollView>(null);
   const windowWidth = useWindowDimensions().width;
   const pagerWidth = Math.min(windowWidth, 620);
+  // 色块行可用宽度：页边距 20×2 与设置卡片内边距 16×2 之后，容纳 8 个色块与 7 道 4 点间隙。
+  const accentSwatch = Math.min(28, Math.floor((pagerWidth - 72 - 28) / 8));
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const switchTab = (next: (typeof tabOrder)[number]) => {
@@ -2013,6 +2016,41 @@ export default function Main() {
                 onPress={() => void run('保存外观', () => setMode(value))}
               />
             ))}
+          </View>
+          <View>
+            <Text style={s.small}>主题色 · {accentNames[accent]}</Text>
+            <View style={[s.accentRow, { marginTop: 6, gap: 4 }]}>
+              {accentOrder.map((key) => {
+                const swatch = accentPalettes[key][dark ? 'dark' : 'light'].accent;
+                const selected = accent === key;
+                return (
+                  <Pressable
+                    key={key}
+                    accessibilityRole="button"
+                    accessibilityLabel={accentNames[key]}
+                    accessibilityState={{ selected }}
+                    testID={`theme-accent-${key}`}
+                    onPress={() => void run('保存主题色', () => setAccent(key))}
+                    style={s.accentHit}
+                  >
+                    <View
+                      style={{
+                        width: accentSwatch,
+                        height: accentSwatch,
+                        borderRadius: accentSwatch,
+                        backgroundColor: swatch,
+                        borderWidth: selected ? 2.5 : 1,
+                        borderColor: selected ? C.ink : C.line,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}
+                    >
+                      {selected && <Icon name="check" size={15} color={inkOn(swatch)} />}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </View>
         </View>
         <View style={s.settingsGroup}>

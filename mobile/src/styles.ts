@@ -264,7 +264,7 @@ const makeStyles = (C: typeof lightColors) =>
       marginTop: 2,
     },
     pickAll: { alignSelf: 'flex-start' },
-    dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.green },
+    dot: { width: 5, height: 5, borderRadius: 3, backgroundColor: C.confirmedDot },
     insightText: { fontSize: 18, lineHeight: 30, color: C.ink, marginTop: 8, marginBottom: 12 },
     pending: { backgroundColor: C.wash, padding: 20, borderRadius: 18, marginBottom: 20 },
     small: { fontSize: 13, color: C.ink, lineHeight: 21 },
@@ -354,6 +354,8 @@ const makeStyles = (C: typeof lightColors) =>
       marginBottom: 20,
       gap: 16,
     },
+    accentRow: { flexDirection: 'row', alignItems: 'center' },
+    accentHit: { flex: 1, height: 44, alignItems: 'center', justifyContent: 'center' },
     feedback: {
       padding: 16,
       borderRadius: 14,
