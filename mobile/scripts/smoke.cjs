@@ -15,6 +15,8 @@ const path = require('node:path');
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('dialog', (d) => d.accept());
   await page.goto('http://127.0.0.1:4173');
+  await page.getByText('从一件小事开始', { exact: true }).waitFor();
+  await page.getByRole('button', { name: '开始记录', exact: true }).click();
   await page.getByRole('button', { name: '记一条', exact: true }).waitFor();
   await page.getByRole('button', { name: '先看看示例' }).click();
   await page.getByText('示例内容 · 不属于你的记忆').waitFor();

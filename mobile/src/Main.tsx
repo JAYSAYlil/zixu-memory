@@ -105,6 +105,7 @@ export default function Main() {
   const [loadError, setLoadError] = useState('');
   const [tab, setTab] = useState<'record' | 'recall' | 'profile'>('record');
   const [settings, setSettings] = useState(false);
+  const settingsScrollPosition = useRef(0);
   const [composer, setComposer] = useState(false);
   const [text, setText] = useState('');
   const [category, setCategory] = useState('日常');
@@ -202,10 +203,12 @@ export default function Main() {
   const run = async (label: string, fn: () => Promise<void>) => {
     if (operationBusy.current) return;
     operationBusy.current = true;
-    setBusy(label);
     request.current = new AbortController();
     try {
-      await fn();
+      // Start browser APIs that require a fresh user gesture before rendering busy state.
+      const operation = fn();
+      setBusy(label);
+      await operation;
     } catch (e) {
       setNotice(e instanceof Error ? e.message : '操作没有完成，请重试。');
     } finally {
@@ -1240,15 +1243,36 @@ export default function Main() {
                             {!!i.changeNote && (
                               <Text style={s.footnote}>变化与局限：{i.changeNote}</Text>
                             )}
-                            {!!i.counterSourceIds?.length &&
-                              i.counterSourceIds.map((id) => (
-                                <Button
-                                  key={id}
-                                  compact
-                                  label={'查看反例 ' + id}
-                                  onPress={() => openDetail(id)}
-                                />
-                              ))}
+                            {!!i.counterSourceIds?.length && (
+                              <View style={{ gap: 8, marginTop: 8, marginBottom: 10 }}>
+                                {i.counterSourceIds.map((id) => {
+                                  const m = data.memories.find((x) => x.id === id);
+                                  return m ? (
+                                    <ScalePressable
+                                      accessibilityRole="button"
+                                      key={id}
+                                      onPress={() => openDetail(id)}
+                                      style={[
+                                        s.source,
+                                        {
+                                          backgroundColor: C.wash,
+                                          borderRadius: 12,
+                                          paddingHorizontal: 12,
+                                        },
+                                      ]}
+                                    >
+                                      <Text numberOfLines={2} style={s.sourceText}>
+                                        ↳ 反例 · {dayLabel(m.createdAt)} ·{' '}
+                                        {m.text ||
+                                          (m.attachments.length
+                                            ? `含 ${m.attachments.length} 个附件`
+                                            : '无文字内容')}
+                                      </Text>
+                                    </ScalePressable>
+                                  ) : null;
+                                })}
+                              </View>
+                            )}
                             {i.sourceChanged && (
                               <Text style={s.footnote}>
                                 引用的经历已修改或删除，请核对后再确认。
@@ -1350,14 +1374,36 @@ export default function Main() {
                               {!!i.changeNote && (
                                 <Text style={s.footnote}>变化与局限：{i.changeNote}</Text>
                               )}
-                              {i.counterSourceIds?.map((id) => (
-                                <Button
-                                  key={id}
-                                  compact
-                                  label={'查看反例 ' + id}
-                                  onPress={() => openDetail(id)}
-                                />
-                              ))}
+                              {!!i.counterSourceIds?.length && (
+                                <View style={{ gap: 8, marginTop: 8, marginBottom: 10 }}>
+                                  {i.counterSourceIds.map((id) => {
+                                    const m = data.memories.find((x) => x.id === id);
+                                    return m ? (
+                                      <ScalePressable
+                                        accessibilityRole="button"
+                                        key={id}
+                                        onPress={() => openDetail(id)}
+                                        style={[
+                                          s.source,
+                                          {
+                                            backgroundColor: C.wash,
+                                            borderRadius: 12,
+                                            paddingHorizontal: 12,
+                                          },
+                                        ]}
+                                      >
+                                        <Text numberOfLines={2} style={s.sourceText}>
+                                          ↳ 反例 · {dayLabel(m.createdAt)} ·{' '}
+                                          {m.text ||
+                                            (m.attachments.length
+                                              ? `含 ${m.attachments.length} 个附件`
+                                              : '无文字内容')}
+                                        </Text>
+                                      </ScalePressable>
+                                    ) : null;
+                                  })}
+                                </View>
+                              )}
                               {i.sourceChanged && (
                                 <Text style={s.footnote}>
                                   引用的经历已修改或删除。这条认识仍保留，你可以点“修改”核对并重新确认。
@@ -1979,6 +2025,10 @@ export default function Main() {
       <Sheet
         feedback={toast}
         visible={settings}
+        scrollPosition={settingsScrollPosition.current}
+        onScrollPositionChange={(position) => {
+          settingsScrollPosition.current = position;
+        }}
         title="设置"
         onClose={() =>
           void run('保存设置', async () => {

@@ -3,6 +3,7 @@ import { selfSkill } from '../src/self.ts';
 import assert from 'node:assert/strict';
 import {
   emptyLibrary,
+  importSummary,
   validateLibrary,
   removeMemory,
   reviseMemory,
@@ -109,4 +110,13 @@ test('Chinese one and two character terms can find original text', () => {
   assert.equal(searchMemories([memory('a')], '时间').length, 1);
   assert.equal(searchMemories([memory('a')], '自').length, 1);
   assert.equal(searchMemories([memory('a')], '旅行').length, 0);
+});
+test('backup import summary counts identical ids without conflicts and changed ids as conflicts', () => {
+  const same = memory('same');
+  const changed = { ...memory('changed'), text: '不同内容' };
+  const current = { ...emptyLibrary(), memories: [same, memory('changed')] };
+  const incoming = { ...emptyLibrary(), memories: [same, changed, memory('new')] };
+
+  assert.match(importSummary(current, incoming), /有 1 条同编号但内容不同的记录/);
+  assert.match(importSummary(current, { ...emptyLibrary(), memories: [same, memory('new')] }), /有 0 条同编号但内容不同的记录/);
 });

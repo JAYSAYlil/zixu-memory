@@ -216,6 +216,7 @@ export function scopedMemories(memories: Memory[], scope: Scope): Memory[] {
       throw new Error('日期请使用有效的 YYYY-MM-DD 格式。');
   if (scope.from && scope.to && scope.from > scope.to)
     throw new Error('开始日期不能晚于结束日期。');
+  const ids = scope.ids ? new Set(scope.ids) : undefined;
   return memories.filter((m) => {
     const d = new Date(m.createdAt);
     const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -223,7 +224,7 @@ export function scopedMemories(memories: Memory[], scope: Scope): Memory[] {
       (!scope.from || day >= scope.from) &&
       (!scope.to || day <= scope.to) &&
       (!scope.category || scope.category === '全部' || scope.category === m.category) &&
-      (!scope.ids || scope.ids.includes(m.id))
+      (!ids || ids.has(m.id))
     );
   });
 }
@@ -277,9 +278,16 @@ export function textOnlyLibrary(library: Library): Library {
   };
 }
 export function importSummary(current: Library, incoming: Library): string {
-  const conflicts = incoming.memories.filter((m) =>
-    current.memories.some((old) => old.id === m.id && JSON.stringify(old) !== JSON.stringify(m)),
-  ).length;
+  const currentById = new Map<string, Set<string>>();
+  for (const memory of current.memories) {
+    const versions = currentById.get(memory.id) ?? new Set<string>();
+    versions.add(JSON.stringify(memory));
+    currentById.set(memory.id, versions);
+  }
+  const conflicts = incoming.memories.filter((memory) => {
+    const versions = currentById.get(memory.id);
+    return !!versions && (versions.size > 1 || !versions.has(JSON.stringify(memory)));
+  }).length;
   return `备份含 ${incoming.memories.length} 条记录、${incoming.insights.length} 条认识、${allAttachments(incoming).length} 个附件。与本机有 ${conflicts} 条同编号但内容不同的记录。恢复会替换本机 ${current.memories.length} 条记录和草稿，不进行合并。恢复前自动保留一份本机快照，可撤销恢复。`;
 }
 function object(v: unknown): v is Record<string, any> {

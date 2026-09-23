@@ -1,3 +1,4 @@
+const { completeWelcome } = require('./smoke-helpers.cjs');
 const { chromium, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -12,6 +13,7 @@ const path = require('node:path');
   const button = name => page.getByRole('button', { name, exact: true });
   const field = name => page.getByLabel(name, { exact: true });
   await page.goto('http://127.0.0.1:4173');
+  await completeWelcome(page);
   await button('设置').click();
   await button('深色').click();
   await expect.poll(() => page.evaluate(() => localStorage.getItem('zixu.appearance'))).toBe('dark');

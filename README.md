@@ -2,7 +2,7 @@
 
 一个本地优先的第二记忆应用。记下经历，找回原文，逐渐形成可以修正的自我认识。
 
-当前版本：0.8.0。[下载安装包](https://github.com/JAYSAYlil/zixu-memory/releases/tag/v0.8.0)。这是沿用开发签名的安卓预览版（非正式签名），可覆盖安装同签名旧版本。
+当前版本为 0.8.2：[下载 Android ARM64 安装包](https://github.com/JAYSAYlil/zixu-memory/releases/tag/v0.8.2)。沿用预览签名（非正式签名），可覆盖安装同签名旧版本。
 
 <p>
   <img src="docs/screenshots/records.png" width="240" alt="记录页面，虚构示例" />
@@ -15,6 +15,14 @@
 ## 0.8.0 更新
 
 设置页外观板块新增八套主题色切换：强调色家族与中性底同时跟随所选颜色，描边与砖红危险提示不参与换色，默认青绿与 0.7.0 完全一致。安装包 27,291,957 字节，比上一版增加 5,648 字节。详见 [更新与验证说明](docs/RELEASE-0.8.0.md)。
+
+## 0.8.1 更新
+
+优化导入冲突摘要与范围 ID 筛选，并修复、验证 8 套网页冒烟脚本。这些改动已包含在 0.8.2 中；详见 [0.8.1 更新与验证说明](docs/RELEASE-0.8.1.md)。
+
+## 0.8.2 更新
+
+设置页在同一会话内重开时保留离开位置；价值观反例以可点击的真实记录摘要呈现，不再显示内部编号。详见 [0.8.2 更新与验证说明](docs/RELEASE-0.8.2.md)，验证范围与真机限制见 [测试记录](docs/TESTING.md)。
 
 ## 当前功能
 
@@ -74,13 +82,22 @@ npx tsc --noEmit
 npm test
 npx expo export --platform web
 node scripts/serve.cjs
-# 另一个终端；脚本使用本机 Chrome，可按实际安装位置修改
+# 在另一个终端中依次运行；脚本使用本机 Chrome，可按实际安装位置修改
+node scripts/smoke.cjs
+node scripts/ai-smoke.cjs
+node scripts/interaction-smoke.cjs
+node scripts/attachments-smoke.cjs
+node scripts/values-smoke.cjs
+node scripts/self-smoke.cjs
+node scripts/draft-failure-smoke.cjs
+node scripts/reliability-smoke.cjs
 node scripts/layout-smoke.cjs
 node scripts/enhancements-smoke.cjs
 node scripts/accent-smoke.cjs
+node scripts/settings-scroll-smoke.cjs
 ```
 
-以上三套是当前可用的网页界面回归。其余八套（`smoke.cjs`、`ai-smoke.cjs`、`interaction-smoke.cjs`、`attachments-smoke.cjs`、`values-smoke.cjs`、`self-smoke.cjs`、`draft-failure-smoke.cjs`、`reliability-smoke.cjs`）自 0.7.0 加入首次引导弹层后未同步更新，在全新浏览器配置下会失败：多数在第一步点击就被弹层挡住而超时，个别表现为脚本自检失败。已把工作树还原成未改动的 0.7.0 重新导出后跑同一批脚本，失败点与错误类型完全相同，确认不是后续改动引入。修好之前，别把它们的红灯当成新回归，也别把它们算作已通过的验收项，细节见 `docs/TESTING.md`。
+网页回归包含八套核心流程、三套布局/增强/主题色检查，以及 `settings-scroll-smoke.cjs` 设置页滚动位置回归。脚本会真实完成首次引导；AI 与数据均使用虚构内容及模拟接口。运行状态与未覆盖范围见 `docs/TESTING.md`。
 
 AI 相关测试使用拦截的虚构域名，不消耗真实额度。主题色脚本会核对默认青绿与中性底数值、八色在浅深两端的切换、跨刷新保留与 320 宽度排布，截图输出在 `artifacts/theme-accent/`。网页是同一套 React Native 界面的辅助预览，不是另做的桌面产品。其数据使用浏览器本地存储，Key 仅存在当前页面内存。网页与 Android 备份格式有意隔离，避免把浏览器临时附件当成安卓持久文件。
 
@@ -94,7 +111,7 @@ Android 在应用私有目录内使用 SQLite 的 memories / insights / metadata
 
 - 不提供使用遥测，不把私人记录上传到任何服务器；仅在使用整理、问答、连接测试与手动语音转写时按用户配置调用其自选的模型服务商。
 - 记录保存在应用私有目录；API Key 保存在 Android SecureStore，不进入备份。
-- 备份文件未加密，请自行存放在可信位置；不要将个人记录、Key、备份或签名文件提交到版本库。
+- 普通完整导出和仅文字导出未加密；安卓可选用密码加密的完整备份。应用本机数据库本身未加密，API Key 单独保存在 Android SecureStore，不进入备份。请妥善保管导出文件与密码；不要将个人记录、Key、备份或签名文件提交到版本库。
 - 发布的安装包为开发签名预览包，仅用于本地安装验证；正式分发前应更换为自行保管的正式签名。
 
 ## 当前边界

@@ -1,3 +1,4 @@
+const { completeWelcome } = require('./smoke-helpers.cjs');
 const { chromium } = require('@playwright/test');
 const fs = require('node:fs');
 (async () => {
@@ -30,6 +31,7 @@ const fs = require('node:fs');
     });
   });
   await page.goto('http://127.0.0.1:4173');
+  await completeWelcome(page);
   for (const text of ['自己安排工作时感觉轻松。', '今天有一段自己的时间，很舒服。']) {
     await page.getByRole('button', { name: '记一条', exact: true }).click();
     await page.getByLabel('记录内容', { exact: true }).fill(text);
@@ -90,7 +92,7 @@ const fs = require('node:fs');
     throw Error('Derived data not invalidated');
   await page.getByRole('button', { name: '设置', exact: true }).click();
   const chooserPromise = page.waitForEvent('filechooser');
-  await page.getByRole('button', { name: '恢复', exact: true }).click();
+  await page.getByRole('button', { name: '选择备份并恢复', exact: true }).click();
   const chooser = await chooserPromise;
   await chooser.setFiles({
     name: 'backup.json',

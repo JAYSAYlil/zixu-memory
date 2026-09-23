@@ -1,4 +1,5 @@
 const { chromium, expect } = require('@playwright/test');
+const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
   try {
@@ -39,7 +40,7 @@ const { chromium, expect } = require('@playwright/test');
     await button('保存并确认').click();
     const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('zixu.preview.v1')));
     if(!saved.insights.some(i=>i.origin==='self'&&i.status==='confirmed'&&i.text.includes('共同安排')))throw Error('Feedback not saved');
-    await page.screenshot({path:'../artifacts/enhancements-profile.png'});
+    await page.screenshot({path:path.resolve(__dirname, '../../artifacts/enhancements-profile.png')});
     if(errors.length)throw Error(errors.join('\n'));
     console.log('PASS onboarding, backup password guard, attachment size, cancel cleanup, evidence links, confirmed feedback');
   } finally {await browser.close();}

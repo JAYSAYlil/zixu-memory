@@ -1,9 +1,12 @@
+const { completeWelcome } = require('./smoke-helpers.cjs');
 const { chromium, expect } = require('@playwright/test');
+const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({ headless: true, executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
   try {
     const page = await browser.newPage({ viewport: { width: 393, height: 852 } });
     await page.goto('http://127.0.0.1:4173');
+    await completeWelcome(page);
     await page.getByRole('button', { name: '记一条', exact: true }).click();
     await page.getByLabel('记录内容').fill('学习时我喜欢自己安排节奏');
     await page.getByText('学习', { exact: true }).last().click();
@@ -38,13 +41,14 @@ const { chromium, expect } = require('@playwright/test');
       const body = route.request().postDataJSON();
       const input = JSON.parse(body.messages[1].content);
       if (!input.confirmedProfile.some(i => i.text.includes('我重视自主'))) throw Error('missing self profile');
-      await route.fulfill({ json: { choices: [{ message: { content: '我可能更愿意保留自主安排的空间。' } }] } });
+      await route.fulfill({ json: { choices: [{ message: { content: '我可能更愿意保留自主安排的空间【' + input.confirmedProfile[0].id + '】。' } }] } });
     });
     await expect(page.getByLabel('API Key', { exact: true })).toBeHidden();
     await page.getByLabel('询问自己的问题').fill('我会怎么安排学习？');
     await page.getByRole('button', { name: '听听自己的答案' }).click();
-    await expect(page.getByText('我可能更愿意保留自主安排的空间。', { exact: true })).toBeVisible();
-    await page.screenshot({ path: '../artifacts/v0.4.0/self.png', fullPage: true });
+    await expect(page.getByText(/我可能更愿意保留自主安排的空间/)).toBeVisible();
+    await expect(page.getByRole('link', { name: '〔已确认的认识〕' })).toBeVisible();
+    await page.screenshot({ path: path.resolve(__dirname, '../../artifacts/v0.4.0/self.png'), fullPage: true });
     console.log('PASS: learning tag, edit controls and category persistence, SKILL.md export, self question with mocked provider');
   } finally { await browser.close(); }
 })().catch(e => { console.error(e); process.exit(1); });

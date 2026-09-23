@@ -1,4 +1,6 @@
+const { completeWelcome } = require('./smoke-helpers.cjs');
 const { chromium, expect } = require('@playwright/test');
+const path = require('node:path');
 (async () => {
   const browser = await chromium.launch({
     headless: true,
@@ -7,6 +9,7 @@ const { chromium, expect } = require('@playwright/test');
   try {
     const page = await browser.newPage({ viewport: { width: 393, height: 852 } });
     await page.goto('http://127.0.0.1:4173');
+    await completeWelcome(page);
     await page.evaluate(() => {
       const at = new Date().toISOString();
       const photo = (id) => ({
@@ -58,7 +61,7 @@ const { chromium, expect } = require('@playwright/test');
     await expect(page.getByRole('button', { name: '移除照片 2' })).toBeVisible();
     await expect(page.getByRole('button', { name: '移除录音 1' })).toBeVisible();
     await page.waitForTimeout(600);
-    await page.screenshot({ path: '../artifacts/v0.4.1/attachments.png' });
+    await page.screenshot({ path: path.resolve(__dirname, '../../artifacts/v0.4.1/attachments.png') });
     await page.getByRole('button', { name: '移除照片 1', exact: true }).click();
     await page.getByRole('button', { name: '移除录音 1', exact: true }).click();
     await page.getByRole('button', { name: '保存', exact: true }).click();

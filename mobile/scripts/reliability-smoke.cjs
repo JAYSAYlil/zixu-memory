@@ -1,3 +1,4 @@
+const { completeWelcome } = require('./smoke-helpers.cjs');
 const { chromium, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
@@ -13,6 +14,7 @@ const path = require('node:path');
     const button = (name) => page.getByRole('button', { name, exact: true });
     const field = (name) => page.getByLabel(name, { exact: true });
     await page.goto('http://127.0.0.1:4173');
+    await completeWelcome(page);
     await page.evaluate(() => {
       const at = '2026-09-14T12:00:00Z';
       const record = (id, text, createdAt = at) => ({
@@ -166,6 +168,7 @@ const path = require('node:path');
     const downloadEvent = page.waitForEvent('download');
     await button('仅导出文字').click();
     const raw = fs.readFileSync(await (await downloadEvent).path(), 'utf8');
+    await expect(button('仅导出文字')).toBeEnabled();
     if (raw.includes('fake-chat-key') || raw.includes('fake-speech-key'))
       throw Error('Key leaked in backup');
     const pack = JSON.parse(raw);
@@ -175,11 +178,13 @@ const path = require('node:path');
     const before = await page.evaluate(() => JSON.parse(localStorage.getItem('zixu.preview.v1')));
     pack.library.memories = [];
     pack.library.insights = [];
-    const chooser = page.waitForEvent('filechooser');
-    await button('恢复').click();
-    await (
-      await chooser
-    ).setFiles({
+    await expect(button('选择备份并恢复')).toBeEnabled();
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      button('选择备份并恢复').click(),
+    ]);
+    await expect(button('选择备份并恢复')).toBeDisabled();
+    await chooser.setFiles({
       name: 'restore.json',
       mimeType: 'application/json',
       buffer: Buffer.from(JSON.stringify(pack)),
@@ -198,6 +203,23 @@ const path = require('node:path');
         page.evaluate(() => JSON.parse(localStorage.getItem('zixu.preview.v1')).memories.length),
       )
       .toBe(before.memories.length);
+    await expect(button('选择备份并恢复')).toBeEnabled();
+    // The large preview fixture can take several seconds to render this control;
+    // register the real chooser event before the click instead of racing a short timeout.
+    const [invalidChooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      button('选择备份并恢复').click(),
+    ]);
+    await invalidChooser.setFiles({
+      name: 'invalid.json',
+      mimeType: 'application/json',
+      buffer: Buffer.from('{}'),
+    });
+    await expect(
+      page.getByText('网页预览只导入网页示例备份，安卓请在手机内恢复。', { exact: true }),
+    ).toBeVisible();
+    await button('知道了').click();
+    await expect(button('选择备份并恢复')).toBeEnabled();
     if (speechCalls !== 1) throw Error('Unexpected speech upload');
     if (errors.length) throw Error(errors.join('\n'));
     fs.mkdirSync(path.resolve(__dirname, '../../artifacts/v0.6.0'), { recursive: true });

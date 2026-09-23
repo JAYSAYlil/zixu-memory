@@ -189,6 +189,8 @@ export function Sheet({
   children,
   feedback,
   footer,
+  scrollPosition = 0,
+  onScrollPositionChange,
 }: {
   footer?: React.ReactNode;
   feedback?: string;
@@ -196,9 +198,38 @@ export function Sheet({
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  scrollPosition?: number;
+  onScrollPositionChange?: (position: number) => void;
 }) {
   const { C } = useTheme();
   const s = useStyles();
+  const scrollRef = React.useRef<ScrollView>(null);
+  const layout = React.useRef({ contentHeight: 0, viewportHeight: 0 });
+  const restoreOffset = React.useRef<number | null>(null);
+  const restoringTo = React.useRef<number | null>(null);
+  const visibleRef = React.useRef(visible);
+  visibleRef.current = visible;
+  const tryRestore = () => {
+    const requested = restoreOffset.current;
+    const { contentHeight, viewportHeight } = layout.current;
+    if (requested === null || !visibleRef.current || !viewportHeight || !contentHeight) return;
+    const y = Math.min(requested, Math.max(0, contentHeight - viewportHeight));
+    restoringTo.current = y;
+    scrollRef.current?.scrollTo({ x: 0, y, animated: false });
+  };
+  React.useLayoutEffect(() => {
+    if (!visible) {
+      restoreOffset.current = null;
+      restoringTo.current = null;
+      layout.current = { contentHeight: 0, viewportHeight: 0 };
+      return;
+    }
+    restoreOffset.current = scrollPosition > 0 ? scrollPosition : null;
+    restoringTo.current = null;
+    if (restoreOffset.current === null) return;
+    const frame = requestAnimationFrame(tryRestore);
+    return () => cancelAnimationFrame(frame);
+  }, [visible]);
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
       <SafeAreaView style={s.root}>
@@ -220,11 +251,41 @@ export function Sheet({
               <View style={{ width: 46 }} />
             </View>
             <ScrollView
+              ref={scrollRef}
               style={{ flex: 1, minHeight: 0 }}
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
               automaticallyAdjustKeyboardInsets
               contentContainerStyle={s.sheetBody}
+              scrollEventThrottle={32}
+              onLayout={(event) => {
+                if (!visibleRef.current) return;
+                layout.current.viewportHeight = event.nativeEvent.layout.height;
+                tryRestore();
+              }}
+              onContentSizeChange={(_width, height) => {
+                if (!visibleRef.current) return;
+                layout.current.contentHeight = height;
+                tryRestore();
+              }}
+              onScroll={(event) => {
+                if (!visibleRef.current) return;
+                const position = Math.max(0, event.nativeEvent.contentOffset.y);
+                if (restoreOffset.current !== null) {
+                  if (restoringTo.current !== null && Math.abs(position - restoringTo.current) <= 2) {
+                    restoreOffset.current = null;
+                    restoringTo.current = null;
+                    onScrollPositionChange?.(position);
+                  }
+                  return;
+                }
+                onScrollPositionChange?.(position);
+              }}
+              onTouchStart={() => {
+                if (restoreOffset.current === null) return;
+                restoreOffset.current = null;
+                restoringTo.current = null;
+              }}
             >
               {children}
             </ScrollView>

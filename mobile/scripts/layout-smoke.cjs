@@ -79,6 +79,8 @@ const fs = require('node:fs');
     for (const [width, height, theme] of [[320,640,'light'], [393,852,'dark'], [620,480,'light']]) {
       await page.setViewportSize({ width, height });
       await page.emulateMedia({ colorScheme: theme });
+      await page.reload();
+      await button('记一条').waitFor();
       await tab('认识我');
       await button('选择观察范围与经历').click();
       await button('开始日期').click();
